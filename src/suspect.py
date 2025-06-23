@@ -4,14 +4,21 @@ import formats.text_sus as text_sus
 import formats.sus as sus
 import formats.c2s as c2s
 
+
 def help():
     print("Usage: suspect.py [command]")
-    print("sustotxt [input] [measure_div] [output]\n\tRenders a .sus file to unicode, using <measure_div> lines per measure")
+    print(
+        "sustotxt [input] [measure_div] [output]\n\tRenders a .sus file to unicode, using <measure_div> lines per measure"
+    )
     print("sustoc2s [input] [output]\n\tConverts a .sus file to c2s format")
-    print("c2stoc2s [input] [output]\n\tTests the c2s parser / exporter by outputting a file equivalent to the input")
+    print(
+        "c2stoc2s [input] [output]\n\tTests the c2s parser / exporter by outputting a file equivalent to the input"
+    )
+    print("c2stosus [input] [output]\n\tConverts a c2s file to sus format")
     # print("sustoxml [input] [output] [id]\n\tExtracts metadata from .sus file into an XML file")
     # print("sus2sus [input] [output]\n\tTests the sus parser by outputting a file equivalent to the input")
     return 1
+
 
 def read_sus(filename):
     data = []
@@ -26,6 +33,7 @@ def read_sus(filename):
 
     return data
 
+
 def read_c2s(filename):
     data = []
     f = open(filename, "r")
@@ -33,14 +41,16 @@ def read_c2s(filename):
     f.close()
     for line in lines:
         data += c2s.from_string(line)
-    
+
     return data
+
 
 def write_output(filename, output):
     f = open(filename, "w")
-    f.write(string)
+    f.write(output)
     f.close()
     print("Wrote %s" % filename)
+
 
 argc = len(argv)
 
@@ -70,6 +80,15 @@ if argv[1] == "sustoc2s":
     sus_data = read_sus(argv[2])
     (definitions, notes) = convert.sus_to_c2s(sus_data)
     string = c2s.create_file(definitions, notes)
+    write_output(argv[3], string)
+    exit(0)
+
+if argv[1] == "c2stosus":
+    if argc != 4:
+        exit(help())
+    c2s_data = read_c2s(argv[2])
+    sus_data = convert.c2s_to_sus(c2s_data)
+    string = sus.create_file(sus_data)
     write_output(argv[3], string)
     exit(0)
 
