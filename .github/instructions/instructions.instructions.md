@@ -279,9 +279,11 @@ The following are defined as specifications.
 
 ---
 
+# C2S Chart Documentation
+
 This is a general documentation on the chart files used in the game. These files indicate the structure of the song, such as note placement and tempo.
 
-# Things to know
+## Things to know
 
 * This document is not guaranteed to be 100% accurate. Some tag definitions are based on assumptions and might require further testing.
 * Most counting in this file format starts from 0. A measure of 0 means at the beginning of the song, a cell of 0 means the first cell on the left, etc.
