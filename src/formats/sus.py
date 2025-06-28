@@ -627,9 +627,9 @@ def create_file(sus_objects):
             if width_val <= 9:
                 width_char = str(width_val)
             elif width_val <= 35:
-                width_char = chr(ord('a') + width_val - 10)
+                width_char = chr(ord("a") + width_val - 10)
             else:
-                width_char = '1'  # Fallback to width 1
+                width_char = "1"  # Fallback to width 1
 
             # Format as a 2-character string (note_type + width)
             note_positions[position] = f"{note_value}{width_char}"
@@ -668,7 +668,9 @@ def create_file(sus_objects):
 
             # Get note type value - use proper SUS long note type encoding
             if hasattr(note, "note_type"):
-                note_value = note.note_type.value  # Long note types: START=1, END=2, STEP=3, etc.
+                note_value = (
+                    note.note_type.value
+                )  # Long note types: START=1, END=2, STEP=3, etc.
             else:
                 note_value = 1  # Default
 
@@ -677,9 +679,9 @@ def create_file(sus_objects):
             if width_val <= 9:
                 width_char = str(width_val)
             elif width_val <= 35:
-                width_char = chr(ord('a') + width_val - 10)
+                width_char = chr(ord("a") + width_val - 10)
             else:
-                width_char = '1'  # Fallback to width 1
+                width_char = "1"  # Fallback to width 1
 
             # Format as a 2-character string (note_type + width)
             note_positions[position] = f"{note_value}{width_char}"

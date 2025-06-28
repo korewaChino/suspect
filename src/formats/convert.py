@@ -11,8 +11,12 @@ def sus_to_c2s(
     c2s_definitions = []
     c2s_notes = []
 
-    def sus_to_c2s_ticks(ticks):
-        scaled_ticks = int((ticks / sus_ticks_per_measure) * c2s_ticks_per_measure)
+    def sus_to_c2s_ticks(sus_ticks):
+        """Convert SUS ticks to C2S ticks with proper scaling"""
+        # SUS uses 1920 ticks per measure (480 ticks per beat * 4 beats)
+        # C2S uses 384 ticks per measure
+        # Scale proportionally: c2s_ticks = sus_ticks * (384 / 1920) = sus_ticks * 0.2
+        scaled_ticks = int((sus_ticks * c2s_ticks_per_measure) / sus_ticks_per_measure)
         return scaled_ticks
 
     for obj in sus_objects:
@@ -116,15 +120,17 @@ def sus_to_c2s(
         if isinstance(obj, sus.BpmChange):
             definition = c2s.BpmSetting()
             definition.measure = obj.measure
-            definition.tick = 0
+            definition.tick = 0  # BPM changes typically happen at the start of measures
             definition.bpm = obj.definition.tempo
             c2s_definitions.append(definition)
 
         if isinstance(obj, sus.BarLength):
             definition = c2s.MeterSetting()
             definition.measure = obj.measure
-            definition.tick = 0
-            definition.signature = (obj.length, 4)
+            definition.tick = (
+                0  # Bar length changes typically happen at the start of measures
+            )
+            definition.signature = (int(obj.length), 4)  # Convert to integer tuple
             c2s_definitions.append(definition)
 
     c2s_notes.sort(key=lambda note: note.measure + note.tick / c2s_ticks_per_measure)
@@ -150,12 +156,19 @@ def c2s_to_sus(
     sus_objects = []
 
     # Helper function to convert ticks
-    def c2s_to_sus_ticks(ticks):
-        scaled_ticks = int((ticks / c2s_ticks_per_measure) * sus_ticks_per_measure)
+    def c2s_to_sus_ticks(c2s_ticks):
+        """Convert C2S ticks to SUS ticks with proper scaling"""
+        # C2S uses 384 ticks per measure
+        # SUS uses 1920 ticks per measure (480 ticks per beat * 4 beats)
+        # Scale proportionally: sus_ticks = c2s_ticks * (1920 / 384) = c2s_ticks * 5
+        scaled_ticks = int((c2s_ticks * sus_ticks_per_measure) / c2s_ticks_per_measure)
         return scaled_ticks
 
     # Sort by measure and tick for consistent processing
-    c2s_objects.sort(key=lambda obj: obj.measure + obj.tick / c2s_ticks_per_measure)
+    c2s_objects.sort(
+        key=lambda obj: getattr(obj, "measure", 0)
+        + getattr(obj, "tick", 0) / c2s_ticks_per_measure
+    )
 
     # Keep track of BPM definitions to avoid duplicates
     bpm_defs = {}
