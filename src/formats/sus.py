@@ -604,17 +604,35 @@ def create_file(sus_objects):
             if position >= resolution:
                 position = resolution - 1  # Limit to valid range
 
-            # Get note type value (in base-36)
+            # Get note type value - use the actual SUS note type encoding
             if hasattr(note, "note_type"):
-                note_value = note.note_type.value
+                # For SUS format, we need the proper note type number
+                if note.note_type == TapNoteType.TAP:
+                    note_value = 1
+                elif note.note_type == TapNoteType.EXTAP:
+                    note_value = 2
+                elif note.note_type == TapNoteType.FLICK:
+                    note_value = 3
+                elif note.note_type == TapNoteType.HELL:
+                    note_value = 4
+                elif note.note_type in AirNoteType:
+                    note_value = note.note_type.value  # Air notes use their enum value
+                else:
+                    note_value = 1  # Default to TAP
             else:
                 note_value = 1  # Default
 
-            # Format width in base-36
+            # Format width in base-36 properly (1-9, then a-z for 10-35)
             width_val = note.width
+            if width_val <= 9:
+                width_char = str(width_val)
+            elif width_val <= 35:
+                width_char = chr(ord('a') + width_val - 10)
+            else:
+                width_char = '1'  # Fallback to width 1
 
             # Format as a 2-character string (note_type + width)
-            note_positions[position] = f"{note_value:x}{width_val:x}"
+            note_positions[position] = f"{note_value}{width_char}"
 
         # Now build the data string, only including necessary positions
         max_pos = max(note_positions.keys()) if note_positions else 0
@@ -632,7 +650,7 @@ def create_file(sus_objects):
             data = data.rstrip("0")
 
         # Output the SUS line
-        output.append(f"#{measure_str}{type_code}{lane_str}8: {data}")
+        output.append(f"#{measure_str}{type_code}{lane_str}: {data}")
 
     # Process long notes with same approach
     for (measure, note_kind, lane, channel), notes in sorted(long_notes.items()):
@@ -648,17 +666,23 @@ def create_file(sus_objects):
             if position >= resolution:
                 position = resolution - 1  # Limit to valid range
 
-            # Get note type value
+            # Get note type value - use proper SUS long note type encoding
             if hasattr(note, "note_type"):
-                note_value = note.note_type.value
+                note_value = note.note_type.value  # Long note types: START=1, END=2, STEP=3, etc.
             else:
                 note_value = 1  # Default
 
-            # Format width in base-36
+            # Format width in base-36 properly (1-9, then a-z for 10-35)
             width_val = note.width
+            if width_val <= 9:
+                width_char = str(width_val)
+            elif width_val <= 35:
+                width_char = chr(ord('a') + width_val - 10)
+            else:
+                width_char = '1'  # Fallback to width 1
 
             # Format as a 2-character string (note_type + width)
-            note_positions[position] = f"{note_value:x}{width_val:x}"
+            note_positions[position] = f"{note_value}{width_char}"
 
         # Now build the data string, only including necessary positions
         max_pos = max(note_positions.keys()) if note_positions else 0
