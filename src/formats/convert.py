@@ -140,7 +140,7 @@ def sus_to_c2s(
 def c2s_to_sus(
     c2s_objects,
     c2s_ticks_per_measure=c2s.C2S_TICKS_PER_MEASURE,
-    sus_ticks_per_measure=sus.SUS_TICKS_PER_MEASURE,
+    ticks_per_beat=480,
 ):
     """
     Convert a list of C2S objects to a list of SUS objects.
@@ -148,19 +148,24 @@ def c2s_to_sus(
     Args:
         c2s_objects: List of C2S objects (definitions and notes)
         c2s_ticks_per_measure: Ticks per measure in C2S format
-        sus_ticks_per_measure: Ticks per measure in SUS format
+        ticks_per_beat: Ticks per beat in SUS format
 
     Returns:
         List of SUS objects
     """
     sus_objects = []
+    sus_objects.append(sus.Request(f'"ticks_per_beat {ticks_per_beat}"'))
+
+    bar_lengths = {}
 
     # Helper function to convert ticks
-    def c2s_to_sus_ticks(c2s_ticks):
+    def c2s_to_sus_ticks(c2s_ticks, measure):
         """Convert C2S ticks to SUS ticks with proper scaling"""
         # C2S uses 384 ticks per measure
-        # SUS uses 1920 ticks per measure (480 ticks per beat * 4 beats)
-        # Scale proportionally: sus_ticks = c2s_ticks * (1920 / 384) = c2s_ticks * 5
+        # SUS uses (ticks_per_beat * bar_length) ticks per measure
+        # Scale proportionally: sus_ticks = c2s_ticks * (sus_ticks_per_measure / c2s_ticks_per_measure)
+        bar_length = bar_lengths.get(measure, 4)
+        sus_ticks_per_measure = bar_length * ticks_per_beat
         scaled_ticks = int((c2s_ticks * sus_ticks_per_measure) / c2s_ticks_per_measure)
         return scaled_ticks
 
@@ -204,13 +209,14 @@ def c2s_to_sus(
             bar_length = sus.BarLength()
             bar_length.measure = obj.measure
             bar_length.length = obj.signature[0]  # Numerator of time signature
+            bar_lengths[obj.measure] = obj.signature[0]
 
             sus_objects.append(bar_length)
 
         elif isinstance(obj, c2s.TapNote):
             note = sus.ShortNote()
             note.measure = obj.measure
-            note.tick = c2s_to_sus_ticks(obj.tick)
+            note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             note.lane = obj.lane
             note.width = obj.width
             note.note_type = sus.TapNoteType.TAP
@@ -220,7 +226,7 @@ def c2s_to_sus(
         elif isinstance(obj, c2s.ChargeNote):
             note = sus.ShortNote()
             note.measure = obj.measure
-            note.tick = c2s_to_sus_ticks(obj.tick)
+            note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             note.lane = obj.lane
             note.width = obj.width
             note.note_type = sus.TapNoteType.EXTAP
@@ -230,7 +236,7 @@ def c2s_to_sus(
         elif isinstance(obj, c2s.FlickNote):
             note = sus.ShortNote()
             note.measure = obj.measure
-            note.tick = c2s_to_sus_ticks(obj.tick)
+            note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             note.lane = obj.lane
             note.width = obj.width
             note.note_type = sus.TapNoteType.FLICK
@@ -240,7 +246,7 @@ def c2s_to_sus(
         elif isinstance(obj, c2s.MineNote):
             note = sus.ShortNote()
             note.measure = obj.measure
-            note.tick = c2s_to_sus_ticks(obj.tick)
+            note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             note.lane = obj.lane
             note.width = obj.width
             note.note_type = sus.TapNoteType.HELL
@@ -250,7 +256,7 @@ def c2s_to_sus(
         elif isinstance(obj, c2s.AirNote):
             note = sus.ShortNote()
             note.measure = obj.measure
-            note.tick = c2s_to_sus_ticks(obj.tick)
+            note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             note.lane = obj.lane
             note.width = obj.width
 
@@ -285,7 +291,7 @@ def c2s_to_sus(
             # Create start note
             start_note = sus.LongNote()
             start_note.measure = obj.measure
-            start_note.tick = c2s_to_sus_ticks(obj.tick)
+            start_note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             start_note.lane = obj.lane
             start_note.width = obj.width
             start_note.note_kind = sus.LongNoteKind.HOLD
@@ -300,7 +306,7 @@ def c2s_to_sus(
             # Create end note
             end_note = sus.LongNote()
             end_note.measure = end_measure
-            end_note.tick = c2s_to_sus_ticks(end_tick)
+            end_note.tick = c2s_to_sus_ticks(end_tick, end_measure)
             end_note.lane = obj.lane
             end_note.width = obj.width
             end_note.note_kind = sus.LongNoteKind.HOLD
@@ -327,7 +333,7 @@ def c2s_to_sus(
             # Create start note
             start_note = sus.LongNote()
             start_note.measure = obj.measure
-            start_note.tick = c2s_to_sus_ticks(obj.tick)
+            start_note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             start_note.lane = obj.lane
             start_note.width = obj.width
             start_note.note_kind = sus.LongNoteKind.AIR_HOLD
@@ -342,7 +348,7 @@ def c2s_to_sus(
             # Create end note
             end_note = sus.LongNote()
             end_note.measure = end_measure
-            end_note.tick = c2s_to_sus_ticks(end_tick)
+            end_note.tick = c2s_to_sus_ticks(end_tick, end_measure)
             end_note.lane = obj.lane
             end_note.width = obj.width
             end_note.note_kind = sus.LongNoteKind.AIR_HOLD
@@ -369,7 +375,7 @@ def c2s_to_sus(
             # Create start note
             start_note = sus.LongNote()
             start_note.measure = obj.measure
-            start_note.tick = c2s_to_sus_ticks(obj.tick)
+            start_note.tick = c2s_to_sus_ticks(obj.tick, obj.measure)
             start_note.lane = obj.lane
             start_note.width = obj.width
             start_note.note_kind = sus.LongNoteKind.SLIDE
@@ -389,7 +395,7 @@ def c2s_to_sus(
             # Create end note
             end_note = sus.LongNote()
             end_note.measure = end_measure
-            end_note.tick = c2s_to_sus_ticks(end_tick)
+            end_note.tick = c2s_to_sus_ticks(end_tick, end_measure)
             end_note.lane = obj.end_lane
             end_note.width = obj.end_width
             end_note.note_kind = sus.LongNoteKind.SLIDE

@@ -3,59 +3,110 @@ from enum import Enum, auto
 
 C2S_TICKS_PER_MEASURE = 384
 
+
 class C2sObject(ABC):
     measure = 0
     tick = 0
 
+
 class BpmSetting(C2sObject):
     bpm = 0.0
+
     def __str__(self):
         return "BPM\t%s\t%s\t%s" % (self.measure, self.tick, self.bpm)
 
+
 class MeterSetting(C2sObject):
     signature = (0, 0)
+
     def __str__(self):
-        return "MET\t%s\t%s\t%s\t%s" % (self.measure, self.tick, self.signature[0], self.signature[1])
+        return "MET\t%s\t%s\t%s\t%s" % (
+            self.measure,
+            self.tick,
+            self.signature[0],
+            self.signature[1],
+        )
+
 
 class SpeedSetting(C2sObject):
     length = 0
     speed = 1.0
+
     def __str__(self):
-        return "SFL\t%s\t%s\t%s\t%s" % (self.measure, self.tick, self.length, self.speed)
+        return "SFL\t%s\t%s\t%s\t%s" % (
+            self.measure,
+            self.tick,
+            self.length,
+            self.speed,
+        )
+
 
 class C2sNote(C2sObject):
     lane = 0
     width = 0
 
+
 class TapNote(C2sNote):
     def __str__(self):
         return "TAP\t%s\t%s\t%s\t%s" % (self.measure, self.tick, self.lane, self.width)
+
 
 class MineNote(C2sNote):
     def __str__(self):
         return "MNE\t%s\t%s\t%s\t%s" % (self.measure, self.tick, self.lane, self.width)
 
+
 class ChargeNote(C2sNote):
     def __str__(self):
         # Seems to always be "UP"
-        return "CHR\t%s\t%s\t%s\t%s\tUP" % (self.measure, self.tick, self.lane, self.width)
+        return "CHR\t%s\t%s\t%s\t%s\tUP" % (
+            self.measure,
+            self.tick,
+            self.lane,
+            self.width,
+        )
+
     pass
+
 
 class FlickNote(C2sNote):
     def __str__(self):
         # Seems to always be "Left"
-        return "FLK\t%s\t%s\t%s\t%s\tL" % (self.measure, self.tick, self.lane, self.width)
+        return "FLK\t%s\t%s\t%s\t%s\tL" % (
+            self.measure,
+            self.tick,
+            self.lane,
+            self.width,
+        )
+
     pass
+
 
 class AirHold(C2sNote):
     length = 0
+
     def __str__(self):
-        return "AHD\t%s\t%s\t%s\t%s\tTAP\t%s" % (self.measure, self.tick, self.lane, self.width, self.length)
+        return "AHD\t%s\t%s\t%s\t%s\tTAP\t%s" % (
+            self.measure,
+            self.tick,
+            self.lane,
+            self.width,
+            self.length,
+        )
+
 
 class HoldNote(C2sNote):
     length = 0
+
     def __str__(self):
-        return "HLD\t%s\t%s\t%s\t%s\t%s" % (self.measure, self.tick, self.lane, self.width, self.length)
+        return "HLD\t%s\t%s\t%s\t%s\t%s" % (
+            self.measure,
+            self.tick,
+            self.lane,
+            self.width,
+            self.length,
+        )
+
 
 class SlideNote(C2sNote):
     length = 0
@@ -68,12 +119,23 @@ class SlideNote(C2sNote):
             tag = "SLC"
         else:
             tag = "SLD"
-        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (tag, self.measure, self.tick, self.lane, self.width, self.length, self.end_lane, self.end_width)
+        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
+            tag,
+            self.measure,
+            self.tick,
+            self.lane,
+            self.width,
+            self.length,
+            self.end_lane,
+            self.end_width,
+        )
+
 
 class AirNote(C2sNote):
     isUp = True
     direction = 0
-    linkage = "TAP" # Apparently doesn't matter
+    linkage = "TAP"  # Apparently doesn't matter
+
     def __str__(self):
         if self.isUp:
             if self.direction > 0:
@@ -90,9 +152,17 @@ class AirNote(C2sNote):
             else:
                 tag = "ADW"
 
-        return "%s\t%s\t%s\t%s\t%s\t%s" % (tag, self.measure, self.tick, self.lane, self.width, self.linkage)
+        return "%s\t%s\t%s\t%s\t%s\t%s" % (
+            tag,
+            self.measure,
+            self.tick,
+            self.lane,
+            self.width,
+            self.linkage,
+        )
 
-def from_string(c2s_string:str):
+
+def from_string(c2s_string: str):
     line = c2s_string.split()
     obj = None
     if len(line) > 0:
@@ -163,6 +233,7 @@ def from_string(c2s_string:str):
         return []
 
     return [obj]
+
 
 def create_file(definitions, notes):
     sample_header = """VERSION	1.07.00	1.07.00
@@ -243,7 +314,7 @@ T_PROG_80	51
 T_PROG_85	84
 T_PROG_90	52
 T_PROG_95	81
-""" 
+"""
     if any(filter(lambda d: isinstance(d, MeterSetting), definitions)) == 0:
         setting = MeterSetting()
         setting.signature = (4, 4)
@@ -252,8 +323,11 @@ T_PROG_95	81
         definitions.append(setting)
 
     return (
-        sample_header + "\n" +
-        "\n".join(map(str, definitions)) + "\n\n" +
-        "\n".join(map(str, notes)) + "\n\n" +
-        sample_footer
+        sample_header
+        + "\n"
+        + "\n".join(map(str, definitions))
+        + "\n\n"
+        + "\n".join(map(str, notes))
+        + "\n\n"
+        + sample_footer
     )

@@ -113,6 +113,13 @@ class BpmChange(SusObject):
     definition = None
 
 
+class Request(SusObject):
+    content = ""
+
+    def __init__(self, content):
+        self.content = content
+
+
 class AttributeDefinition(SusObject):
     identifier = 0
     roll_speed = None
@@ -498,210 +505,17 @@ def create_file(sus_objects):
     output.append("#PLAYLEVEL 0")
     output.append('#SONGID "0"')
     output.append('#WAVE ""')
-    output.append("#WAVEOFFSET 0")
-    output.append('#JACKET ""')
-    output.append("")
-    output.append('#REQUEST "ticks_per_beat 480"')
-    output.append("")
 
-    # Process BPM definitions
-    bpm_defs = {}
     for obj in sus_objects:
-        if isinstance(obj, BpmDefinition):
-            bpm_defs[obj.identifier] = obj
+        if isinstance(obj, Request):
+            output.append(f"#REQUEST {obj.content}")
+        elif isinstance(obj, BpmDefinition):
             output.append(f"#BPM{obj.identifier}: {obj.tempo}")
+        elif isinstance(obj, BarLength):
+            # TODO: This doesn't handle measure changes correctly yet
+            output.append(f"#{obj.measure:05d}02: {obj.length}")
+        elif isinstance(obj, BpmChange):
+            output.append(f"#{obj.measure:05d}08: {obj.definition.identifier}")
 
-    # Create a map of note timing to measure size to handle odd time signatures
-    measure_sizes = {}
-    for obj in sus_objects:
-        if isinstance(obj, BarLength):
-            measure_sizes[obj.measure] = obj.length
-
-    # Default bar length (4/4)
-    output.append("#00002: 4")
-    output.append("")
-
-    # BPM changes and other definitions
-    for obj in sus_objects:
-        if isinstance(obj, BpmChange):
-            # Find the BPM definition ID for this change
-            bpm_id = None
-            for bid, bdef in bpm_defs.items():
-                if bdef == obj.definition:
-                    bpm_id = bid
-                    break
-
-            if bpm_id:
-                measure_str = f"{obj.measure:03d}"
-                output.append(f"#{measure_str}08: {bpm_id}")
-
-        elif (
-            isinstance(obj, BarLength) and obj.measure != 0
-        ):  # Skip default at measure 0
-            measure_str = f"{obj.measure:03d}"
-            output.append(f"#{measure_str}02: {obj.length}")
-
-    output.append("")
-
-    # Group notes by measure and type for better organization
-    short_notes = defaultdict(list)
-    long_notes = defaultdict(list)
-
-    # Collect short notes by measure, type, and lane
-    for obj in sus_objects:
-        if isinstance(obj, ShortNote):
-            measure = obj.measure
-            tick = obj.tick
-            lane = obj.lane
-            width = obj.width
-
-            # Determine the note type code for SUS format
-            if hasattr(obj, "note_type"):
-                if obj.note_type in TapNoteType:
-                    type_code = "1"  # TAP notes
-                elif obj.note_type in AirNoteType:
-                    type_code = "5"  # AIR notes
-                else:
-                    type_code = "1"  # Default to TAP
-            else:
-                type_code = "1"  # Default to TAP
-
-            key = (measure, type_code, lane)
-            short_notes[key].append((tick, obj))
-
-        elif isinstance(obj, LongNote):
-            if not hasattr(obj, "channel"):
-                # Skip notes without a channel
-                continue
-
-            measure = obj.measure
-            tick = obj.tick
-            lane = obj.lane
-            width = obj.width
-            note_kind = obj.note_kind
-            note_type = obj.note_type
-            channel = obj.channel
-
-            key = (measure, str(note_kind.value), lane, channel)
-            long_notes[key].append((tick, obj))
-
-    # Determine best resolution for output
-    # Use a reasonable resolution that balances precision with file size
-    # For original SUS compatibility, let's use a common subdivision
-    resolution = 16  # Standard resolution that matches most SUS files
-
-    # Process short notes and convert to SUS format
-    for (measure, type_code, lane), notes in sorted(short_notes.items()):
-        # Format the measure and lane for SUS format
-        measure_str = f"{measure:03d}"
-        lane_str = f"{lane:x}"
-
-        # First, determine the actual required positions
-        note_positions = {}
-        for tick, note in notes:
-            # Calculate position in the measure
-            position = int((tick / SUS_TICKS_PER_MEASURE) * resolution)
-            if position >= resolution:
-                position = resolution - 1  # Limit to valid range
-
-            # Get note type value - use the actual SUS note type encoding
-            if hasattr(note, "note_type"):
-                # For SUS format, we need the proper note type number
-                if note.note_type == TapNoteType.TAP:
-                    note_value = 1
-                elif note.note_type == TapNoteType.EXTAP:
-                    note_value = 2
-                elif note.note_type == TapNoteType.FLICK:
-                    note_value = 3
-                elif note.note_type == TapNoteType.HELL:
-                    note_value = 4
-                elif note.note_type in AirNoteType:
-                    note_value = note.note_type.value  # Air notes use their enum value
-                else:
-                    note_value = 1  # Default to TAP
-            else:
-                note_value = 1  # Default
-
-            # Format width in base-36 properly (1-9, then a-z for 10-35)
-            width_val = note.width
-            if width_val <= 9:
-                width_char = str(width_val)
-            elif width_val <= 35:
-                width_char = chr(ord("a") + width_val - 10)
-            else:
-                width_char = "1"  # Fallback to width 1
-
-            # Format as a 2-character string (note_type + width)
-            note_positions[position] = f"{note_value}{width_char}"
-
-        # Now build the data string, only including necessary positions
-        max_pos = max(note_positions.keys()) if note_positions else 0
-        data_parts = ["00"] * (max_pos + 1)
-
-        # Fill in actual note data
-        for position, value in note_positions.items():
-            data_parts[position] = value
-
-        # Join data parts into a single string
-        data = "".join(data_parts)
-
-        # Remove trailing zeros to keep the file compact
-        if data.endswith("00"):
-            data = data.rstrip("0")
-
-        # Output the SUS line
-        output.append(f"#{measure_str}{type_code}{lane_str}: {data}")
-
-    # Process long notes with same approach
-    for (measure, note_kind, lane, channel), notes in sorted(long_notes.items()):
-        # Format the measure, lane and channel for SUS format
-        measure_str = f"{measure:03d}"
-        lane_str = f"{lane:x}"
-
-        # First, determine the actual required positions
-        note_positions = {}
-        for tick, note in notes:
-            # Calculate position in the measure
-            position = int((tick / SUS_TICKS_PER_MEASURE) * resolution)
-            if position >= resolution:
-                position = resolution - 1  # Limit to valid range
-
-            # Get note type value - use proper SUS long note type encoding
-            if hasattr(note, "note_type"):
-                note_value = (
-                    note.note_type.value
-                )  # Long note types: START=1, END=2, STEP=3, etc.
-            else:
-                note_value = 1  # Default
-
-            # Format width in base-36 properly (1-9, then a-z for 10-35)
-            width_val = note.width
-            if width_val <= 9:
-                width_char = str(width_val)
-            elif width_val <= 35:
-                width_char = chr(ord("a") + width_val - 10)
-            else:
-                width_char = "1"  # Fallback to width 1
-
-            # Format as a 2-character string (note_type + width)
-            note_positions[position] = f"{note_value}{width_char}"
-
-        # Now build the data string, only including necessary positions
-        max_pos = max(note_positions.keys()) if note_positions else 0
-        data_parts = ["00"] * (max_pos + 1)
-
-        # Fill in actual note data
-        for position, value in note_positions.items():
-            data_parts[position] = value
-
-        # Join data parts into a single string
-        data = "".join(data_parts)
-
-        # Remove trailing zeros to keep the file compact
-        if data.endswith("00"):
-            data = data.rstrip("0")
-
-        # Output the SUS line
-        output.append(f"#{measure_str}{note_kind}{lane_str}{channel}: {data}")
-
+    # TODO: Implement proper note serialization
     return "\n".join(output)
